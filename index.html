@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>EternaSkin Shop</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #ffe6f2; /* light pink */
+      margin: 0;
+      padding: 0;
+      text-align: center;
+    }
+    header {
+      background: #ffb6c1;
+      padding: 15px;
+      font-size: 24px;
+      font-weight: bold;
+      color: white;
+    }
+    .container {
+      padding: 20px;
+    }
+    .product, .order, .admin-section {
+      background: white;
+      border-radius: 10px;
+      padding: 20px;
+      margin: 15px auto;
+      width: 90%;
+      max-width: 400px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    button {
+      background: #ff4d94;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    button:hover {
+      background: #e60073;
+    }
+    input, textarea {
+      width: 90%;
+      padding: 10px;
+      margin: 5px 0;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+    }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <header>💖 EternaSkin Shop 💖</header>
+  <div class="container">
+
+    <!-- Customer Products Section -->
+    <h2>Our Products</h2>
+    <div id="products-list"></div>
+
+    <!-- Customer Checkout Form -->
+    <div class="order">
+      <h3>Checkout (Cash on Delivery)</h3>
+      <form id="orderForm">
+        <input type="text" id="customerName" placeholder="Your Name" required><br>
+        <input type="text" id="customerPhone" placeholder="Phone Number" required><br>
+        <textarea id="customerAddress" placeholder="Delivery Address" required></textarea><br>
+        <input type="hidden" id="orderProduct"><br>
+        <button type="submit">Place Order</button>
+      </form>
+    </div>
+
+    <!-- Admin Login -->
+    <div class="admin-section">
+      <h3>Admin Login</h3>
+      <input type="password" id="adminPassword" placeholder="Enter password">
+      <button onclick="adminLogin()">Login</button>
+    </div>
+
+    <!-- Admin Dashboard -->
+    <div id="adminPanel" class="hidden">
+      <h2>Admin Panel</h2>
+      <h3>Add Product</h3>
+      <form id="productForm">
+        <input type="text" id="productName" placeholder="Product Name" required><br>
+        <textarea id="productDescription" placeholder="Description" required></textarea><br>
+        <input type="number" id="productPrice" placeholder="Price" required><br>
+        <input type="text" id="productImage" placeholder="Image URL"><br>
+        <button type="submit">Add Product</button>
+      </form>
+      <h3>Orders</h3>
+      <div id="orders-list"></div>
+    </div>
+  </div>
+
+  <!-- Firebase SDKs -->
+  <script type="module">
+    // Import Firebase SDK
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
+    import { getFirestore, collection, addDoc, getDocs, onSnapshot } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
+
+    // Firebase config (your new project)
+    const firebaseConfig = {
+      apiKey: "AIzaSyAjQeTwVj9MORTmXeJh0WJ1xcX5vwTDUzA",
+      authDomain: "eternaskincustomerwebsite.firebaseapp.com",
+      projectId: "eternaskincustomerwebsite",
+      storageBucket: "eternaskincustomerwebsite.firebasestorage.app",
+      messagingSenderId: "348632687730",
+      appId: "1:348632687730:web:cc728acda7c1c522530eeb",
+      measurementId: "G-GWZMTFD0ZT"
+    };
+
+    // Init Firebase + Firestore
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // ---------------- CUSTOMER SIDE ----------------
+    const productsList = document.getElementById("products-list");
+    const orderForm = document.getElementById("orderForm");
+
+    // Show products live
+    function loadProducts() {
+      onSnapshot(collection(db, "products"), (snapshot) => {
+        productsList.innerHTML = "";
+        snapshot.forEach(doc => {
+          const p = doc.data();
+          const div = document.createElement("div");
+          div.className = "product";
+          div.innerHTML = `
+            <h4>${p.name}</h4>
+            <p>${p.description}</p>
+            <p><b>৳${p.price}</b></p>
+            ${p.image ? `<img src="${p.image}" style="max-width:100%"><br>` : ""}
+            <button onclick="selectProduct('${doc.id}','${p.name}')">Buy</button>
+          `;
+          productsList.appendChild(div);
+        });
+      });
+    }
+    loadProducts();
+
+    // When customer selects a product
+    window.selectProduct = function(id, name) {
+      document.getElementById("orderProduct").value = name;
+      alert(`You selected: ${name}. Fill checkout form to confirm.`);
+    };
+
+    // Place Order (COD)
+    orderForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      try {
+        await addDoc(collection(db, "orders"), {
+          name: document.getElementById("customerName").value,
+          phone: document.getElementById("customerPhone").value,
+          address: document.getElementById("customerAddress").value,
+          product: document.getElementById("orderProduct").value,
+          status: "Pending",
+          createdAt: new Date()
+        });
+        alert("Order placed successfully! Cash on Delivery.");
+        orderForm.reset();
+      } catch (err) {
+        console.error(err);
+      }
+    });
+
+    // ---------------- ADMIN SIDE ----------------
+    const adminPanel = document.getElementById("adminPanel");
+    const productForm = document.getElementById("productForm");
+    const ordersList = document.getElementById("orders-list");
+
+    // Demo admin login
+    window.adminLogin = function() {
+      const pass = document.getElementById("adminPassword").value;
+      if (pass === "admin123") {
+        adminPanel.classList.remove("hidden");
+        alert("Welcome Admin!");
+        loadOrders();
+      } else {
+        alert("Wrong password!");
+      }
+    };
+
+    // Add product
+    productForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      try {
+        await addDoc(collection(db, "products"), {
+          name: document.getElementById("productName").value,
+          description: document.getElementById("productDescription").value,
+          price: document.getElementById("productPrice").value,
+          image: document.getElementById("productImage").value
+        });
+        alert("Product added!");
+        productForm.reset();
+      } catch (err) {
+        console.error(err);
+      }
+    });
+
+    // Load orders live
+    function loadOrders() {
+      onSnapshot(collection(db, "orders"), (snapshot) => {
+        ordersList.innerHTML = "";
+        snapshot.forEach(doc => {
+          const o = doc.data();
+          const div = document.createElement("div");
+          div.className = "order";
+          div.innerHTML = `
+            <p><b>${o.name}</b> (${o.phone})</p>
+            <p>Product: ${o.product}</p>
+            <p>Address: ${o.address}</p>
+            <p>Status: ${o.status}</p>
+          `;
+          ordersList.appendChild(div);
+        });
+      });
+    }
+  </script>
+</body>
+</html>
